@@ -28,12 +28,16 @@ board.init_tiles()
 run = True
 while run:
     screen.fill((255, 255, 255))  # Refreshes screen
+    board.mask_layer.fill((0, 0, 0, 0))
 
     # Draws all the tiles and pieces on the board
     board.draw_board()
 
+    # Gets all possible moves 
+    board.set_possible_moves()
+
     mouse_pos = pygame.mouse.get_pos()
-    board.mouse_pos_rel(mouse_pos)  # Sets the relative mouse position to the coords on the board
+    board.set_mouse_rel(mouse_pos)  # Sets the relative mouse position to the coords on the board
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -44,8 +48,8 @@ while run:
                 for j in range(TILES_IN_ROW):
                     tile = board.tiles[i][j]
                     tile.check_click(board.mouse_pos)
-
-
+        
+    screen.blit(board.mask_layer, (0, 0))
     pygame.display.update()
     clock.tick(60)
 

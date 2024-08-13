@@ -26,7 +26,7 @@ class Piece:
         return tile.piece and tile.piece.color != self.color
     
     def tile_available(self, tile):
-        return tile.piece is None or (self.piece_is_enemy(tile) and self.piece_c != "p")
+        return tile.piece is None or (self.piece_is_enemy(tile))
 
     @staticmethod
     def make_piece(piece):
@@ -69,22 +69,28 @@ class Piece:
         y = self.y
         num_moves = 0
         while True:
-            can_move_x = 0 <= (x + x_mod) <= TILES_IN_ROW
-            can_move_y = 0 <= (y + y_mod) <= TILES_IN_ROW
+            can_move_x = 0 <= (x + x_mod) < TILES_IN_ROW
+            can_move_y = 0 <= (y + y_mod) < TILES_IN_ROW
 
             # Allows alternate behavior based off the type of piece this is
+
+            # Since pawns are the only piece that can't move backwards, just check to see which
+            # color it is, then determine if the pawn is at it's start based off that
+            pawn_at_start = self.piece_c == "p" and (
+                (self.color == "w" and self.y == 6) or (self.color == "b" and self.y == 1))
+
             if self.piece_c == "k" and num_moves == 1:
                 return
-            elif self.piece_c == "p" and self.y == 6 and num_moves == 2:
+            elif self.piece_c == "p" and pawn_at_start and num_moves == 2:
                 return 
-            elif self.piece_c == "p" and self.y != 6 and num_moves == 1:
+            elif self.piece_c == "p" and not pawn_at_start and num_moves == 1:
                 return 
 
-            if can_move_x and can_move_y and self.tile_available(tiles[y][x]):
-                x += x_mod
-                y += y_mod
-                moves.append({x, y})
-                num_moves +=1
+            x += x_mod
+            y += y_mod
+            if can_move_x and can_move_y and self.tile_available(tiles[y][x]) or (self.piece_c == "p" and not tiles[y][x].piece):
+                    moves.append(tiles[y][x])
+                    num_moves +=1
             else:
                 return
             
@@ -110,7 +116,7 @@ class King(Piece):
     def get_moves(self, board):
         moves = []
         self.get_all_dirs(moves, board.tiles)
-        return moves
+        return moves if len(moves) > 0 else None
 
 class Queen(Piece):
     def __init__(self, color, x, y, width, height):
@@ -119,7 +125,7 @@ class Queen(Piece):
     def get_moves(self, board):
         moves = []
         self.get_all_dirs(moves, board.tiles)
-        return moves
+        return moves if len(moves) > 0 else None
         
 class Bishop(Piece):
     def __init__(self, color, x, y, width, height):
@@ -134,7 +140,7 @@ class Bishop(Piece):
         self.get_omni_moves(1, -1, moves, tiles)    # Up right
         self.get_omni_moves(-1, 1, moves, tiles)    # Down left
         self.get_omni_moves(1, 1, moves, tiles)     # Down right
-        return moves
+        return moves if len(moves) > 0 else None
 
 class Knight(Piece):
     def __init__(self, color, x, y, width, height):
@@ -149,11 +155,14 @@ class Knight(Piece):
             new_y = self.y + (2 * y_mod)
             if (0 <= new_x <= TILES_IN_ROW) and (0 <= new_y <= TILES_IN_ROW):
                 if self.tile_available(board.tiles[new_y][new_x]):
-                    moves.append({new_x, new_y})
+                    moves.append(board.tiles[new_y][new_x])
 
         get_l_move(-1, -1)  # Up left
+        get_l_move(1, -1)   # Up right
+        get_l_move(-1, 1)   # Down left
+        get_l_move(1, 1)    # Down right
 
-        return moves
+        return moves if len(moves) > 0 else None
 
 class Rook(Piece):
     def __init__(self, color, x, y, width, height):
@@ -168,8 +177,7 @@ class Rook(Piece):
         self.get_omni_moves(1, 0, moves, tiles)     # Right
         self.get_omni_moves(0, -1, moves, tiles)    # Up
         self.get_omni_moves(0, 1, moves, tiles)     # Down
-
-        return moves
+        return moves if len(moves) > 0 else None
 
 class Pawn(Piece):
     def __init__(self, color, x, y, width, height):
@@ -181,15 +189,20 @@ class Pawn(Piece):
         tiles = board.tiles
 
         # 1. Get how many moves you can make forward
-        self.get_omni_moves(0, -1, moves, tiles)
+        if self.color == "w":
+            self.get_omni_moves(0, -1, moves, tiles)
+        else:
+            self.get_omni_moves(0, 1, moves, tiles)            
 
         # 2. Check both diagonals
         upper_diag_in_bound = lambda x : x >= 0 and x <= TILES_IN_ROW and self.y - 1 >= 0 and self.y - 1 <= TILES_IN_ROW
         
         if upper_diag_in_bound(self.x - 1) and self.piece_is_enemy(board.tiles[self.y - 1][self.x - 1]):
-            moves.append({self.x - 1, self.y - 1})
+            moves.append(tiles[self.y - 1][self.x - 1])
 
         if upper_diag_in_bound(self.x + 1) and self.piece_is_enemy(board.tiles[self.y - 1][self.x - 1]):
-            moves.append({self.x + 1, self.y - 1})
+            moves.append(tiles[self.y - 1][self.x + 1])
 
-        return moves
+        # print("Pawn moves: ")
+        # print(moves)
+        return moves if len(moves) > 0 else None
