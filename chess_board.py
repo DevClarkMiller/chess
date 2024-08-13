@@ -1,5 +1,5 @@
 import pygame, json
-from globals import BLACK, WHITE, YELLOW, BLUE, TILES_IN_ROW, draw_opaque_rect
+from globals import BLACK, WHITE, YELLOW, BLUE, RED, TILES_IN_ROW, draw_opaque_rect
 from chess_tile import Tile
 import chess_piece
 
@@ -8,7 +8,7 @@ class Board:
         self.screen = screen
         # The mask layer allows me to draw things that can't be drawn over with tiles or pieces
         self.mask_layer = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
-        self.mask_layer.set_alpha(128)
+        # self.mask_layer.set_alpha(128)
         
         self.width = width
         self.height = height
@@ -49,10 +49,10 @@ class Board:
                         tile.piece = PieceType(piece_val[0], col, row, self.tile_width, self.tile_height)
 
     def draw_possible_moves(self, moves):
+        if moves == None: return
         for tile in moves:
             # Uses mask layer instead so that tile drawing doesn't draw over the move display
-            draw_opaque_rect(self.mask_layer, tile, BLUE, 256) 
-            # draw_opaque_rect(self.screen, tile, BLUE, 128)
+            draw_opaque_rect(self.mask_layer, tile, BLUE, 128)
 
     def draw_board(self):
         for row in range(0, TILES_IN_ROW):
@@ -60,17 +60,17 @@ class Board:
                 tile = self.tiles[row][col]
 
                 self.draw_tile(tile)
-                if tile.piece:
+                if tile.piece and not tile.piece.being_dragged:
                     piece_img = tile.piece.img
                     self.screen.blit(piece_img, (tile.x, tile.y))
 
                 if self.mouse_pos == (col, row):
                     # Draws a yellow border around the tile your mouse is currently over
-                    pygame.draw.rect(self.screen, YELLOW, (tile.x, tile.y, self.tile_width, self.tile_width), 5)
+                    pygame.draw.rect(self.mask_layer, YELLOW, (tile.x, tile.y, self.tile_width, self.tile_width), 5)
 
                     # Draw possible moves
                     piece_moves = self.possible_moves_dict.get((col, row))
-                    if piece_moves is not None:
+                    if piece_moves != None and not tile.piece.being_dragged:
                         self.draw_possible_moves(piece_moves)
 
     def draw_tile(self, tile):
@@ -95,10 +95,13 @@ class Board:
         for row in range(0, TILES_IN_ROW):
             for col in range(0, TILES_IN_ROW):
                 tile = tiles[row][col]
-                if tile.piece and tile.piece.color:
-                    piece_moves = tile.piece.get_moves(self)
-                    if piece_moves is not None:
+                piece = tile.piece
+                if piece and piece.color:
+                    piece_moves = piece.get_moves(self)
+                    if piece_moves != None:
                         moves[(col, row)] = piece_moves
+                # else:
+                #     # For debugging if tiles can be moved to
+                #     pygame.draw.rect(self.mask_layer, RED, (tile.x, tile.y, self.tile_width, self.tile_width))
 
         self.possible_moves_dict = moves
-

@@ -22,6 +22,13 @@ class Piece:
         self.width = width
         self.height = height
 
+        self.being_dragged = False
+        
+        self.possible_moves = None
+    
+    def set_coords(self, coords):
+        self.x, self.y = coords
+
     def piece_is_enemy(self, tile):
         return tile.piece and tile.piece.color != self.color
     
@@ -48,20 +55,18 @@ class Piece:
     # Moves the piece to the desired location if it's possible,
     # it knows if it's possible by checking if the potential move is
     # in the moves list 
-    def move(self, x, y, moves): 
-        pass
+    def move(self, og_tile, tile): 
+        if self.possible_moves == None: return
+        if og_tile == tile: return
 
-    # def get_diagonal_moves(self, x_mod, y_mod, moves, tiles):
-    #     # The end of the loop depends on the direction x is in
-    #     end = -1 if x_mod < 0 else TILES_IN_ROW  
-    #     y = self.y
-    #     for x in range(self.x, end, x_mod):
-    #         if y + y_mod >= 0 and y + y_mod <= TILES_IN_ROW:
-    #             y += y_mod
-    #             if self.tile_available(tiles[y][x]):
-    #                 moves.append({x, y})
-    #             else:
-    #                 break
+        # Check each of the coords of the possible moves tiles 
+        # to see if this move is available
+        for possible_tile in self.possible_moves:
+            if (tile.tile_x, tile.tile_y) == (possible_tile.tile_x, possible_tile.tile_y):
+                tile.piece = self       # Set the current piece on the new tile
+                tile.piece.set_coords((tile.tile_x, tile.tile_y))
+                og_tile.piece = None    # Reset the tile you moved from
+                return 
 
     # Gets the moves that a piece can make in a straight line
     def get_omni_moves(self, x_mod, y_mod, moves, tiles):
@@ -89,8 +94,11 @@ class Piece:
             x += x_mod
             y += y_mod
             if can_move_x and can_move_y and self.tile_available(tiles[y][x]) or (self.piece_c == "p" and not tiles[y][x].piece):
-                    moves.append(tiles[y][x])
-                    num_moves +=1
+                moves.append(tiles[y][x])
+                num_moves +=1
+
+                if self.piece_is_enemy(tiles[y][x]):
+                    return
             else:
                 return
             
@@ -106,6 +114,7 @@ class Piece:
         self.get_omni_moves(1, -1, moves, tiles)    # Up right
         self.get_omni_moves(-1, 1, moves, tiles)    # Down left
         self.get_omni_moves(1, 1, moves, tiles)     # Down right
+        
 
 class King(Piece):
     def __init__(self, color, x, y, width, height):
@@ -116,6 +125,7 @@ class King(Piece):
     def get_moves(self, board):
         moves = []
         self.get_all_dirs(moves, board.tiles)
+        self.possible_moves = moves if len(moves) > 0 else None
         return moves if len(moves) > 0 else None
 
 class Queen(Piece):
@@ -125,6 +135,7 @@ class Queen(Piece):
     def get_moves(self, board):
         moves = []
         self.get_all_dirs(moves, board.tiles)
+        self.possible_moves = moves if len(moves) > 0 else None
         return moves if len(moves) > 0 else None
         
 class Bishop(Piece):
@@ -140,6 +151,7 @@ class Bishop(Piece):
         self.get_omni_moves(1, -1, moves, tiles)    # Up right
         self.get_omni_moves(-1, 1, moves, tiles)    # Down left
         self.get_omni_moves(1, 1, moves, tiles)     # Down right
+        self.possible_moves = moves if len(moves) > 0 else None
         return moves if len(moves) > 0 else None
 
 class Knight(Piece):
@@ -153,7 +165,7 @@ class Knight(Piece):
         def get_l_move(x_mod, y_mod):
             new_x = self.x + (1 * x_mod)
             new_y = self.y + (2 * y_mod)
-            if (0 <= new_x <= TILES_IN_ROW) and (0 <= new_y <= TILES_IN_ROW):
+            if (0 <= new_x < TILES_IN_ROW) and (0 <= new_y < TILES_IN_ROW):
                 if self.tile_available(board.tiles[new_y][new_x]):
                     moves.append(board.tiles[new_y][new_x])
 
@@ -161,7 +173,7 @@ class Knight(Piece):
         get_l_move(1, -1)   # Up right
         get_l_move(-1, 1)   # Down left
         get_l_move(1, 1)    # Down right
-
+        self.possible_moves = moves if len(moves) > 0 else None
         return moves if len(moves) > 0 else None
 
 class Rook(Piece):
@@ -177,6 +189,7 @@ class Rook(Piece):
         self.get_omni_moves(1, 0, moves, tiles)     # Right
         self.get_omni_moves(0, -1, moves, tiles)    # Up
         self.get_omni_moves(0, 1, moves, tiles)     # Down
+        self.possible_moves = moves if len(moves) > 0 else None
         return moves if len(moves) > 0 else None
 
 class Pawn(Piece):
@@ -205,4 +218,5 @@ class Pawn(Piece):
 
         # print("Pawn moves: ")
         # print(moves)
+        self.possible_moves = moves if len(moves) > 0 else None
         return moves if len(moves) > 0 else None
