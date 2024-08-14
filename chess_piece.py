@@ -106,7 +106,7 @@ class Piece:
                 if self.piece_c == "p" and tiles[y][x].piece:
                     return
                 
-                moves.append(tiles[y][x])
+                moves.append((x, y))
                 num_moves += 1
 
                 # The enemy is the farthest a piece can move to, so it breaks from the loop when one is reached
@@ -130,7 +130,7 @@ class Piece:
 
     # x, y, width, height, color, piece
     def copy(self):
-        copy = type(self)(self.x, self.y, self.width, self.height, self.color)
+        copy = type(self)(self.color, self.x, self.y, self.width, self.height)
         copy.being_dragged = self.being_dragged
         copy.img = self.img
         return copy
@@ -183,7 +183,7 @@ class Knight(Piece):
             new_y = self.y + y_mod
             if (0 <= new_x < TILES_IN_ROW) and (0 <= new_y < TILES_IN_ROW):
                 if self.tile_available(board.tiles[new_y][new_x]):
-                    moves.append(board.tiles[new_y][new_x])
+                    moves.append((new_x, new_y))
 
         get_l_move(1, 2)    # Up right
         get_l_move(2, 1)    # Right up
@@ -220,19 +220,18 @@ class Pawn(Piece):
         moves = []
         tiles = board.tiles
 
+        y_mod = 1 if self.color == "b" else -1
+
         # 1. Get how many moves you can make forward
-        if self.color == "w":
-            self.get_omni_moves(0, -1, moves, tiles)
-        else:
-            self.get_omni_moves(0, 1, moves, tiles)            
+        self.get_omni_moves(0, y_mod, moves, tiles)          
 
         # 2. Check both diagonals
-        upper_diag_in_bound = lambda x : x >= 0 and x < TILES_IN_ROW and self.y - 1 >= 0 and self.y - 1 < TILES_IN_ROW
+        upper_diag_in_bound = lambda x : 0 <= x < TILES_IN_ROW and 0 <= self.y + y_mod < TILES_IN_ROW
         
-        if upper_diag_in_bound(self.x - 1) and self.piece_is_enemy(board.tiles[self.y - 1][self.x - 1]):
-            moves.append(tiles[self.y - 1][self.x - 1])
+        if upper_diag_in_bound(self.x - 1) and self.piece_is_enemy(board.tiles[self.y + y_mod][self.x - 1]):
+            moves.append((self.y + y_mod, self.x - 1))
 
-        if upper_diag_in_bound(self.x + 1) and self.piece_is_enemy(board.tiles[self.y - 1][self.x - 1]):
-            moves.append(tiles[self.y - 1][self.x + 1])
+        if upper_diag_in_bound(self.x + 1) and self.piece_is_enemy(board.tiles[self.y + y_mod][self.x - 1]):
+            moves.append((self.y + y_mod, self.x + 1))
 
         return moves if len(moves) > 0 else None

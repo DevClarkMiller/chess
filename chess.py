@@ -1,100 +1,147 @@
-import pygame, ai, threading
+from math import inf
+import pygame, ai, threading, queue, sys
 from chess_board import Board
 from globals import init_pieces_icons, TILES_IN_ROW
 
 pygame.init()
 
-SCREEN_WIDTH = 700
-SCREEN_HEIGHT = SCREEN_WIDTH
-# SCREEN_HEIGHT = int(SCREEN_WIDTH * 0.8)
+class Chess:
+    def __init__(self):
+        SCREEN_WIDTH = 700
+        SCREEN_HEIGHT = SCREEN_WIDTH
+        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        pygame.display.set_caption("Chess Board")
+        self.clock = pygame.time.Clock()
 
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("Chess Board")
+        # Init thread stuff
+        self.ai_move = queue.Queue()
+        self.ai_move_arr = []
+        self.lock = threading.Lock()
 
-clock = pygame.time.Clock()
+        # Creates the board
+        self.board = Board(self.screen, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0)  
+        init_pieces_icons('./pieces') 
+        self.board.init_locations_dict("./starting_locations.json")
+        self.board.init_tiles()  
 
-# Board is set to takeup whole screen, but could be sized to whatever and placed wherever
-# TODO - ACTUALLY ALLOW TO PLACE ANYWHERE/SCALE WITH SCREEN
-board = Board(screen, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0)  
+        self.determining_moves = False
 
-# Populates a dict with the name of the file as key, and path as the value
-# Must load this function before creating any pieces
-init_pieces_icons('./pieces')
+    def determine_move(self):
+    # Adds the minimax check onto the queue of the thread
+        self.determining_moves = True
+        #self.ai_move.put(ai.minimax(self.board.copy(), 3, inf, -inf, True, "b")[0])
+        self.ai_move_arr.append(ai.minimax(self.board.copy(), 3, inf, -inf, True, "b")[0])
+        print("Just finished determining the ais moves!")
+        sys.exit()  # Exit thread after a move is found
 
-board.init_locations_dict("./starting_locations.json")
-board.init_tiles()
+    def main_game(self):
+        t = threading.Thread(target=self.determine_move)
+        run = True
+        mouse_pos = None
+        active_tile = None
 
-active_tile = None
-mouse_pos = None
+        while run and not self.board.game_over:
+            self.screen.fill((255, 255, 255))  # Refreshes screen
+            self.board.mask_layer.fill((0, 0, 0, 0))
 
-# Thread which is used for determining the ais move
-t = threading.Thread()
+            # Gets all possible moves 
+            if self.board.active_player == "w":
+                moves = self.board.get_possible_moves()
+                self.board.possible_moves_dict = moves
 
-def ai_turn():
-    pass
+            # Draws all the tiles and pieces on the board
+            self.board.draw_board()
+            self.board.check_mouse_hover()
 
-run = True
-while run and not board.game_over:
-    screen.fill((255, 255, 255))  # Refreshes screen
-    board.mask_layer.fill((0, 0, 0, 0))
+            if active_tile != None:
+                mouse_x, mouse_y = mouse_pos
+                piece_img = active_tile.piece.img
 
-    # Gets all possible moves 
-    moves = board.get_possible_moves()
-    board.possible_moves_dict = moves
+                # Centers the dragged tile to the middle of the mouse
+                img_width, img_height = piece_img.get_size()
+                centered_x = mouse_x - img_width // 2
+                centered_y = mouse_y - img_height // 2
 
-    # Draws all the tiles and pieces on the board
-    board.draw_board()
-    board.check_mouse_hover()
+                self.screen.blit(piece_img, (centered_x, centered_y))
+                piece = active_tile.piece
+                possible_moves = self.board.possible_moves_dict.get((piece.x, piece.y))
+                if possible_moves != None:
+                    self.board.draw_possible_moves(possible_moves)
 
-    if active_tile:
-        print(active_tile.piece.color)
+            mouse_pos = pygame.mouse.get_pos()
+            self.board.set_mouse_rel(mouse_pos)  # Sets the relative mouse position to the coords on the board
 
-    if active_tile != None:
-        mouse_x, mouse_y = mouse_pos
-        piece_img = active_tile.piece.img
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    run = False
 
-        # Centers the dragged tile to the middle of the mouse
-        img_width, img_height = piece_img.get_size()
-        centered_x = mouse_x - img_width // 2
-        centered_y = mouse_y - img_height // 2
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:
+                        # Get the tile at the relative mouse pos
+                        rel_x, rel_y = self.board.mouse_pos
+                        if self.board.tiles[rel_y][rel_x]:      
+                            tile = self.board.tiles[rel_y][rel_x]
+                            if tile.piece != None and tile.piece.color == "w" and tile.piece.color == self.board.active_player:
+                                # Resets the being dragged state of whatever piece was picked up
+                                if active_tile:
+                                    active_tile.piece.being_dragged = False
 
-        screen.blit(piece_img, (centered_x, centered_y))
-        piece = active_tile.piece
-        board.draw_possible_moves(board.possible_moves_dict[(piece.x, piece.y)])
+                                active_tile = tile
+                                active_tile.piece.being_dragged = True
 
-    mouse_pos = pygame.mouse.get_pos()
-    board.set_mouse_rel(mouse_pos)  # Sets the relative mouse position to the coords on the board
+                # Check what the mouses new pos will be. If valid, then move here
+                if event.type == pygame.MOUSEBUTTONUP and active_tile != None:
+                    rel_x, rel_y = self.board.mouse_pos
+                    active_tile.piece.being_dragged = False
+                    if Board.coord_in_board(self.board.mouse_pos): 
+                        # active_tile.piece.move(active_tile, board.tiles[rel_y][rel_x])
+                        from_coord = (active_tile.tile_x, active_tile.tile_y)
+                        if self.board.make_move((from_coord, (rel_x, rel_y))):
+                            print("Player made move")
+                            self.board.next_turn()
+                        active_tile = None
+                
+            # Tell ai to determine their move
+            #self.lock.acquire()
+            with self.lock:
+                if (self.board.active_player == "b" 
+                    #and self.ai_move.qsize() == 0 
+                    and len(self.ai_move_arr) == 0
+                    and not self.board.game_over
+                    and not t.is_alive()
+                    and not self.determining_moves):
 
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            run = False
+                    # Remake thread
+                    t = threading.Thread(target=self.determine_move)
+                    t.start()
+            #self.lock.release()
 
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1:
-                # Get the tile at the relative mouse pos
-                rel_x, rel_y = board.mouse_pos
-                if board.tiles[rel_y][rel_x]:      
-                    tile = board.tiles[rel_y][rel_x]
-                    if tile.piece != None and tile.piece.color == "w" and tile.piece.color == board.active_player:
-                        # Resets the being dragged state of whatever piece was picked up
-                        if active_tile:
-                            active_tile.piece.being_dragged = False
+            # Make move if it's their turn and they've found a move
+            if (self.board.active_player == "b"
+                #and self.ai_move.qsize() > 0
+                and len(self.ai_move_arr) > 0
+                and not self.board.game_over):
+                #move = self.ai_move.get()
+                move = self.ai_move_arr[-1] 
+                print(f"AI MOVING FROM {move[0]} TO {move[1]}")
+                #print("AI NOW GOING TO MAKE MOVE")
+                if move != None and move[0] != None and move[1] != None:
+                    if self.board.make_move((move[0], move[1])):
+                        self.board.next_turn()
+                        self.ai_move_arr.pop()
+                        self.determining_moves = False
+                    else:
+                        print("Issue with ai move")
 
-                        active_tile = tile
-                        active_tile.piece.being_dragged = True
+            self.screen.blit(self.board.mask_layer, (0, 0))
 
-        # Check what the mouses new pos will be. If valid, then move here
-        if event.type == pygame.MOUSEBUTTONUP and active_tile != None:
-            rel_x, rel_y = board.mouse_pos
-            active_tile.piece.being_dragged = False
-            if Board.coord_in_board(board.mouse_pos): 
-                # active_tile.piece.move(active_tile, board.tiles[rel_y][rel_x])
-                board.make_move(active_tile, board.tiles[rel_y][rel_x])
-                board.next_turn()
-                active_tile = None
+            #print(f"LEN OF AI_MOVE_ARR IS {len(self.ai_move_arr)}")
 
-    screen.blit(board.mask_layer, (0, 0))
-    pygame.display.update()
-    clock.tick(60)
+            pygame.display.update()
+            self.clock.tick(60)
 
-pygame.quit()
+        pygame.quit()
+
+# Starts game 
+chess = Chess()
+chess.main_game()

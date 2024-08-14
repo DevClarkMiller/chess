@@ -16,23 +16,30 @@ def evaluate(board, maximizing_color):
 
 def minimax(board, depth, alpha, beta, maximizing_player, maximizing_color):
     if depth == 0 or board.game_over:
-        return None, evaluate(board)
+        return None, evaluate(board, maximizing_color)
     
     from_moves = board.get_possible_moves()
-    best_move = random.choice(from_moves)
-
+    if len(from_moves) == 0:
+        print("NO MOVES AVAILABLE FOR IT")
+        return None, None
+    
+    # Get a random key
+    random_key = random.choice(list(from_moves))
+    random_move = random.choice(from_moves.get(random_key))
+    best_move = (random_key, random_move)
+    
     # Find maximum value
     if maximizing_player:
         max_eval = -inf # Worse possible scenario
         for from_move in from_moves:    # Iterate over all the keys
             to_moves = from_moves[from_move]
             for to_move in to_moves:
-                board.make_move(from_move, to_move)
+                board.make_move((from_move, to_move))
                 current_eval = minimax(board, depth - 1, alpha, beta, False, maximizing_color)[1]
                 board.unmake_move()
                 if current_eval > max_eval:
                     max_eval = current_eval
-                    best_move = to_move
+                    best_move = (from_move, to_move)
         return best_move, max_eval
     # Find minumum value
     else:
@@ -40,10 +47,10 @@ def minimax(board, depth, alpha, beta, maximizing_player, maximizing_color):
         for from_move in from_moves:    # Iterate over all the keys
             to_moves = from_moves[from_move]
             for to_move in to_moves:
-                board.make_move(from_move, to_move)
+                board.make_move((from_move, to_move))
                 current_eval = minimax(board, depth - 1, alpha, beta, True, maximizing_color)[1]
                 board.unmake_move()
                 if current_eval < min_eval:
                     min_eval = current_eval
-                    best_move = to_move
+                    best_move = (from_move, to_move)
         return best_move, min_eval

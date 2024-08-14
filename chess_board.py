@@ -51,8 +51,7 @@ class Board:
         # Iterate over the tiles of the board and create a copy if there's a piece present
         for row in range(0, TILES_IN_ROW):
             for col in range(0, TILES_IN_ROW):
-                if self.tiles[row][col].piece:  
-                    copy.tiles[row][col] = self.tiles[row][col].copy()
+                copy.tiles[row][col] = self.tiles[row][col].copy()
 
         return copy
     
@@ -60,7 +59,12 @@ class Board:
         print(f"SCORE: WHITE - {self.white_score} | BLACK - {self.black_score}")
         print(f"PLAYER: {"WHITE" if self.active_player == "w" else "BLACK"}")
 
-    def make_move(self, og_tile, dest_tile):
+    def make_move(self, move):
+        move_from, move_to = move
+
+        og_tile = self.tiles[move_from[1]][move_from[0]]
+        dest_tile = self.tiles[move_to[1]][move_to[0]]
+
         previous_state = {
             "black_score": self.black_score,
             "white_score": self.white_score,
@@ -68,21 +72,24 @@ class Board:
             "tile2": dest_tile.copy(),
             "game_over": self.game_over
         }
+        self.past_moves.append(previous_state)
         
-        move_possible = False
-        # Check to see if move can be made given the current tiles coords
-        possible_moves = self.possible_moves_dict[(og_tile.tile_x, og_tile.tile_y)]
+        if self.active_player == "w":
+            move_possible = False
+            # Check to see if move can be made given the current tiles coords
+            possible_moves = self.possible_moves_dict.get(move_from)
 
-        if possible_moves == None or len(possible_moves) == 0:
-            return False
+            if possible_moves == None or len(possible_moves) == 0:
+                return False
 
-        for possible_tile in possible_moves:
-            if (dest_tile.tile_x, dest_tile.tile_y) == (possible_tile.tile_x, possible_tile.tile_y):
-                move_possible = True
-                break
+            for possible_move in possible_moves:
+                if move_to == possible_move:
+                    move_possible = True
+                    break
 
-        if not move_possible:
-            return False
+            if not move_possible:
+                print("CANNOT MOVE PIECE HERE!")
+                return False
         
         if dest_tile.piece:
             if self.active_player == "w":
@@ -93,7 +100,7 @@ class Board:
         if og_tile.piece:
             og_tile.piece.move(og_tile, dest_tile)
 
-        self.print_game()
+        # self.print_game()
         return True
 
     # Undoes a previous move by reverting to a stored gamestate
@@ -152,16 +159,16 @@ class Board:
 
     def draw_possible_moves(self, moves):
         if moves == None: return
-        for tile in moves:
+        for move in moves:
             # Uses mask layer instead so that tile drawing doesn't draw over the move display
-            draw_opaque_rect(self.mask_layer, tile, BLUE, 128)
+            draw_opaque_rect(self.mask_layer, self.tiles[move[1]][move[0]], BLUE, 128)
 
     def check_mouse_hover(self):
         x, y = self.mouse_pos
         in_range = lambda pos: 0 <= pos < TILES_IN_ROW
         if in_range(x) and in_range(y):
             tile = self.tiles[y][x]
-            if tile.piece and tile.piece.color != "w": return
+            if tile.piece and tile.piece.color != "w" or tile.piece == None or self.active_player != "w": return
             # Draws a yellow border around the tile your mouse is currently over
             pygame.draw.rect(self.mask_layer, YELLOW, (tile.x, tile.y, self.tile_width, self.tile_width), 5)
 
@@ -202,13 +209,17 @@ class Board:
         for row in range(0, TILES_IN_ROW):
             for col in range(0, TILES_IN_ROW):
                 tile = tiles[row][col]
+
                 piece = tile.piece
-                if piece and piece.color and piece.color == self.active_player:
+                if piece and piece.color == self.active_player:
                     piece_moves = piece.get_moves(self)
                     if piece_moves != None:
                         moves[(col, row)] = piece_moves
-                # else:
-                #     # For debugging if tiles can be moved to
-                #     pygame.draw.rect(self.mask_layer, RED, (tile.x, tile.y, self.tile_width, self.tile_width))
 
+        num_moves = len(moves)
+
+        # if num_moves > 0:
+        #     print(f"NUM OF HARVESTED MOVES: {len(moves)}")
+        # else:
+        #     print("NO MOVES FOUND")
         return moves
