@@ -23,12 +23,13 @@ def draw_opaque_rect(screen, rect, color, alpha):
     s.fill((*color, alpha))
     # Blit this surface onto the destination surface (which could be the mask layer)
     screen.blit(s, (rect.x, rect.y))
- 
 
 # The value for each of the pieces
-class Piece_Values(Enum):
-    Pawn = 1
-    Knight = 3
-    Bishop = 3
-    Rook = 5
-    Queen = 9
+piece_values = {
+    "p": 10,
+    "n": 30,
+    "b": 30,
+    "r": 50,
+    "q": 90,
+    "k": 900
+}

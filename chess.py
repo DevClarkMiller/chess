@@ -1,7 +1,6 @@
-import pygame, chess_logic
+import pygame, ai, threading
 from chess_board import Board
 from globals import init_pieces_icons, TILES_IN_ROW
-import chess_piece
 
 pygame.init()
 
@@ -28,17 +27,27 @@ board.init_tiles()
 active_tile = None
 mouse_pos = None
 
+# Thread which is used for determining the ais move
+t = threading.Thread()
+
+def ai_turn():
+    pass
+
 run = True
-while run:
+while run and not board.game_over:
     screen.fill((255, 255, 255))  # Refreshes screen
     board.mask_layer.fill((0, 0, 0, 0))
 
-
     # Gets all possible moves 
-    board.set_possible_moves()
+    moves = board.get_possible_moves()
+    board.possible_moves_dict = moves
 
     # Draws all the tiles and pieces on the board
     board.draw_board()
+    board.check_mouse_hover()
+
+    if active_tile:
+        print(active_tile.piece.color)
 
     if active_tile != None:
         mouse_x, mouse_y = mouse_pos
@@ -50,7 +59,8 @@ while run:
         centered_y = mouse_y - img_height // 2
 
         screen.blit(piece_img, (centered_x, centered_y))
-        board.draw_possible_moves(active_tile.piece.possible_moves)
+        piece = active_tile.piece
+        board.draw_possible_moves(board.possible_moves_dict[(piece.x, piece.y)])
 
     mouse_pos = pygame.mouse.get_pos()
     board.set_mouse_rel(mouse_pos)  # Sets the relative mouse position to the coords on the board
@@ -65,7 +75,7 @@ while run:
                 rel_x, rel_y = board.mouse_pos
                 if board.tiles[rel_y][rel_x]:      
                     tile = board.tiles[rel_y][rel_x]
-                    if tile.piece != None:
+                    if tile.piece != None and tile.piece.color == "w" and tile.piece.color == board.active_player:
                         # Resets the being dragged state of whatever piece was picked up
                         if active_tile:
                             active_tile.piece.being_dragged = False
@@ -77,8 +87,11 @@ while run:
         if event.type == pygame.MOUSEBUTTONUP and active_tile != None:
             rel_x, rel_y = board.mouse_pos
             active_tile.piece.being_dragged = False
-            active_tile.piece.move(active_tile, board.tiles[rel_y][rel_x])
-            active_tile = None
+            if Board.coord_in_board(board.mouse_pos): 
+                # active_tile.piece.move(active_tile, board.tiles[rel_y][rel_x])
+                board.make_move(active_tile, board.tiles[rel_y][rel_x])
+                board.next_turn()
+                active_tile = None
 
     screen.blit(board.mask_layer, (0, 0))
     pygame.display.update()

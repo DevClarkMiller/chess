@@ -1,18 +1,12 @@
 import pygame
 from abc import ABC, abstractmethod
-from globals import imgs_dict, TILES_IN_ROW
+from globals import imgs_dict, TILES_IN_ROW, piece_values
 
 class Piece:
     def __init__(self, x, y, width, height, color, piece):
         self.color = color
         self.piece_c = piece
         self.img = None
-        img_path = Piece.get_img_path(piece, color)
-        if img_path:
-            self.img = pygame.image.load(img_path)
-            self.img = pygame.transform.scale(self.img, (width, height))
-
-        self.value = 0
 
         # x and y are relative to the board
         self.x = x
@@ -25,6 +19,12 @@ class Piece:
         self.being_dragged = False
         
         self.possible_moves = None
+
+    def set_image(self):
+        img_path = Piece.get_img_path(self.piece_c, self.color)
+        if img_path:
+            self.img = pygame.image.load(img_path)
+            self.img = pygame.transform.scale(self.img, (self.width, self.height))
     
     def set_coords(self, coords):
         self.x, self.y = coords
@@ -54,19 +54,26 @@ class Piece:
 
     # Moves the piece to the desired location if it's possible,
     # it knows if it's possible by checking if the potential move is
-    # in the moves list 
+    # in the moves list
+    # Returns the value of the move, which will be subtracted from the opposing players score on the board object
     def move(self, og_tile, tile): 
-        if self.possible_moves == None: return
         if og_tile == tile: return
 
-        # Check each of the coords of the possible moves tiles 
-        # to see if this move is available
-        for possible_tile in self.possible_moves:
-            if (tile.tile_x, tile.tile_y) == (possible_tile.tile_x, possible_tile.tile_y):
-                tile.piece = self       # Set the current piece on the new tile
-                tile.piece.set_coords((tile.tile_x, tile.tile_y))
-                og_tile.piece = None    # Reset the tile you moved from
-                return 
+        # Func which checks if the piece is a pawn and is able to turn into a queen
+        def queen_morphable(og_tile, move_tile):
+            if og_tile.piece.piece_c == "p" and (move_tile.tile_y == 0 or move_tile.tile_y == 7):
+                return True
+            return False
+
+
+        # Set the current piece on the new tile or morphs into a queen if possible
+        tile.piece = self 
+        if queen_morphable(og_tile, tile):
+            tile.piece = Queen(og_tile.piece.color, tile.tile_x, tile.tile_y, self.width, self.height)
+            tile.piece.set_image()
+
+        tile.piece.set_coords((tile.tile_x, tile.tile_y))
+        og_tile.piece = None    # Reset the tile you moved from
 
     # Gets the moves that a piece can make in a straight line
     def get_omni_moves(self, x_mod, y_mod, moves, tiles):
@@ -93,10 +100,16 @@ class Piece:
 
             x += x_mod
             y += y_mod
-            if can_move_x and can_move_y and self.tile_available(tiles[y][x]) or (self.piece_c == "p" and not tiles[y][x].piece):
-                moves.append(tiles[y][x])
-                num_moves +=1
 
+            # If the piece is a pawn, it can't move forward if there's an enemy in the way
+            if can_move_x and can_move_y and self.tile_available(tiles[y][x]):
+                if self.piece_c == "p" and tiles[y][x].piece:
+                    return
+                
+                moves.append(tiles[y][x])
+                num_moves += 1
+
+                # The enemy is the farthest a piece can move to, so it breaks from the loop when one is reached
                 if self.piece_is_enemy(tiles[y][x]):
                     return
             else:
@@ -114,7 +127,13 @@ class Piece:
         self.get_omni_moves(1, -1, moves, tiles)    # Up right
         self.get_omni_moves(-1, 1, moves, tiles)    # Down left
         self.get_omni_moves(1, 1, moves, tiles)     # Down right
-        
+
+    # x, y, width, height, color, piece
+    def copy(self):
+        copy = type(self)(self.x, self.y, self.width, self.height, self.color)
+        copy.being_dragged = self.being_dragged
+        copy.img = self.img
+        return copy
 
 class King(Piece):
     def __init__(self, color, x, y, width, height):
@@ -125,7 +144,6 @@ class King(Piece):
     def get_moves(self, board):
         moves = []
         self.get_all_dirs(moves, board.tiles)
-        self.possible_moves = moves if len(moves) > 0 else None
         return moves if len(moves) > 0 else None
 
 class Queen(Piece):
@@ -135,7 +153,6 @@ class Queen(Piece):
     def get_moves(self, board):
         moves = []
         self.get_all_dirs(moves, board.tiles)
-        self.possible_moves = moves if len(moves) > 0 else None
         return moves if len(moves) > 0 else None
         
 class Bishop(Piece):
@@ -151,7 +168,6 @@ class Bishop(Piece):
         self.get_omni_moves(1, -1, moves, tiles)    # Up right
         self.get_omni_moves(-1, 1, moves, tiles)    # Down left
         self.get_omni_moves(1, 1, moves, tiles)     # Down right
-        self.possible_moves = moves if len(moves) > 0 else None
         return moves if len(moves) > 0 else None
 
 class Knight(Piece):
@@ -163,17 +179,21 @@ class Knight(Piece):
         moves = []
 
         def get_l_move(x_mod, y_mod):
-            new_x = self.x + (1 * x_mod)
-            new_y = self.y + (2 * y_mod)
+            new_x = self.x + x_mod
+            new_y = self.y + y_mod
             if (0 <= new_x < TILES_IN_ROW) and (0 <= new_y < TILES_IN_ROW):
                 if self.tile_available(board.tiles[new_y][new_x]):
                     moves.append(board.tiles[new_y][new_x])
 
-        get_l_move(-1, -1)  # Up left
-        get_l_move(1, -1)   # Up right
-        get_l_move(-1, 1)   # Down left
-        get_l_move(1, 1)    # Down right
-        self.possible_moves = moves if len(moves) > 0 else None
+        get_l_move(1, 2)    # Up right
+        get_l_move(2, 1)    # Right up
+        get_l_move(2, -1)   # Right down
+        get_l_move(1, -2)   # Down right
+        get_l_move(-1, -2)  # Down left
+        get_l_move(-2, -1)  # Left down
+        get_l_move(-2, 1)   # Left up
+        get_l_move(-1, 2)   # Up left
+        
         return moves if len(moves) > 0 else None
 
 class Rook(Piece):
@@ -189,7 +209,6 @@ class Rook(Piece):
         self.get_omni_moves(1, 0, moves, tiles)     # Right
         self.get_omni_moves(0, -1, moves, tiles)    # Up
         self.get_omni_moves(0, 1, moves, tiles)     # Down
-        self.possible_moves = moves if len(moves) > 0 else None
         return moves if len(moves) > 0 else None
 
 class Pawn(Piece):
@@ -208,7 +227,7 @@ class Pawn(Piece):
             self.get_omni_moves(0, 1, moves, tiles)            
 
         # 2. Check both diagonals
-        upper_diag_in_bound = lambda x : x >= 0 and x <= TILES_IN_ROW and self.y - 1 >= 0 and self.y - 1 <= TILES_IN_ROW
+        upper_diag_in_bound = lambda x : x >= 0 and x < TILES_IN_ROW and self.y - 1 >= 0 and self.y - 1 < TILES_IN_ROW
         
         if upper_diag_in_bound(self.x - 1) and self.piece_is_enemy(board.tiles[self.y - 1][self.x - 1]):
             moves.append(tiles[self.y - 1][self.x - 1])
@@ -216,7 +235,4 @@ class Pawn(Piece):
         if upper_diag_in_bound(self.x + 1) and self.piece_is_enemy(board.tiles[self.y - 1][self.x - 1]):
             moves.append(tiles[self.y - 1][self.x + 1])
 
-        # print("Pawn moves: ")
-        # print(moves)
-        self.possible_moves = moves if len(moves) > 0 else None
         return moves if len(moves) > 0 else None
