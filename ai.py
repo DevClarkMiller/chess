@@ -1,33 +1,35 @@
 import random
 from math import inf
 
-def random_move(board):
-    moves = board.get_possible_moves()
+# def random_move(board):
+#     moves = board.get_possible_moves()
 
-    # Select random key
+#     # Select random key
 
-    # Select random element from the dicts key value
+#     # Select random element from the dicts key value
 
 def evaluate(board, maximizing_color):
     if maximizing_color == "w":
         return board.white_score - board.black_score
     else:
-        return board.white_score - board.black_score
+        return board.black_score - board.white_score
 
 def minimax(board, depth, alpha, beta, maximizing_player, maximizing_color):
     if depth == 0 or board.game_over:
-        return None, evaluate(board, maximizing_color)
+        return None, evaluate(board, maximizing_color)  # Only returns the evaluation at depth 0
     
     from_moves = board.get_possible_moves()
     if len(from_moves) == 0:
-        print("NO MOVES AVAILABLE FOR IT")
+        print("NO MOVES AVAILABLE")
         return None, None
     
     # Get a random key
-    random_key = random.choice(list(from_moves))
-    random_move = random.choice(from_moves.get(random_key))
-    best_move = (random_key, random_move)
-    
+    # random_key = random.choice(list(from_moves))
+    # random_move = random.choice(from_moves.get(random_key))
+    # best_move = (random_key, random_move)
+
+    best_move = None
+
     # Find maximum value
     if maximizing_player:
         max_eval = -inf # Worse possible scenario
@@ -40,6 +42,10 @@ def minimax(board, depth, alpha, beta, maximizing_player, maximizing_color):
                 if current_eval > max_eval:
                     max_eval = current_eval
                     best_move = (from_move, to_move)
+
+                alpha = max(alpha, current_eval)
+                if beta <= alpha:
+                    break
         return best_move, max_eval
     # Find minumum value
     else:
@@ -53,4 +59,8 @@ def minimax(board, depth, alpha, beta, maximizing_player, maximizing_color):
                 if current_eval < min_eval:
                     min_eval = current_eval
                     best_move = (from_move, to_move)
+
+                beta = min(beta, current_eval)
+                if beta <= alpha:
+                    break
         return best_move, min_eval

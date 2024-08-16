@@ -33,6 +33,17 @@ class Board:
         
         self.game_over = False
 
+    def print_moves(self, moves):
+        print("------------------------------------------------------------------")
+        for from_coord in moves:
+            # Array of to moves from key
+            print(f"[{from_coord[0]}, {from_coord[1]}]  -> ", end="")
+            for to_coord in moves(from_coord):
+                if to_coord:
+                    print(f"[{to_coord[0]}, {to_coord[1]}], ", end="")
+            print() # For newline
+        print("------------------------------------------------------------------")
+
     def next_turn(self):
         self.active_player = "w" if self.active_player == "b" else "b"
 
@@ -59,6 +70,26 @@ class Board:
         print(f"SCORE: WHITE - {self.white_score} | BLACK - {self.black_score}")
         print(f"PLAYER: {"WHITE" if self.active_player == "w" else "BLACK"}")
 
+    def player_move(self, move):
+        move_from, move_to = move
+
+        move_possible = False
+        # Check to see if move can be made given the current tiles coords
+        possible_moves = self.possible_moves_dict.get(move_from)
+
+        if possible_moves == None or len(possible_moves) == 0:
+            return False
+
+        for possible_move in possible_moves:
+            if move_to == possible_move:
+                move_possible = True
+                break
+
+        if not move_possible:
+            return False
+        
+        return self.make_move(move)
+
     def make_move(self, move):
         move_from, move_to = move
 
@@ -74,23 +105,6 @@ class Board:
         }
         self.past_moves.append(previous_state)
         
-        if self.active_player == "w":
-            move_possible = False
-            # Check to see if move can be made given the current tiles coords
-            possible_moves = self.possible_moves_dict.get(move_from)
-
-            if possible_moves == None or len(possible_moves) == 0:
-                return False
-
-            for possible_move in possible_moves:
-                if move_to == possible_move:
-                    move_possible = True
-                    break
-
-            if not move_possible:
-                print("CANNOT MOVE PIECE HERE!")
-                return False
-        
         if dest_tile.piece:
             if self.active_player == "w":
                 self.black_score -= piece_values[dest_tile.piece.piece_c]
@@ -100,7 +114,6 @@ class Board:
         if og_tile.piece:
             og_tile.piece.move(og_tile, dest_tile)
 
-        # self.print_game()
         return True
 
     # Undoes a previous move by reverting to a stored gamestate

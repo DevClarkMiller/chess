@@ -226,12 +226,12 @@ class Pawn(Piece):
         self.get_omni_moves(0, y_mod, moves, tiles)          
 
         # 2. Check both diagonals
-        upper_diag_in_bound = lambda x : 0 <= x < TILES_IN_ROW and 0 <= self.y + y_mod < TILES_IN_ROW
+        upper_diag_in_bound = lambda x : 0 <= x < TILES_IN_ROW and 0 <= (self.y + y_mod) < TILES_IN_ROW
         
         if upper_diag_in_bound(self.x - 1) and self.piece_is_enemy(board.tiles[self.y + y_mod][self.x - 1]):
-            moves.append((self.y + y_mod, self.x - 1))
+            moves.append((self.x - 1, self.y + y_mod))
 
-        if upper_diag_in_bound(self.x + 1) and self.piece_is_enemy(board.tiles[self.y + y_mod][self.x - 1]):
-            moves.append((self.y + y_mod, self.x + 1))
+        if upper_diag_in_bound(self.x + 1) and self.piece_is_enemy(board.tiles[self.y + y_mod][self.x + 1]):
+            moves.append((self.x + 1, self.y + y_mod))
 
         return moves if len(moves) > 0 else None

@@ -48,6 +48,7 @@ class Chess:
             if self.board.active_player == "w":
                 moves = self.board.get_possible_moves()
                 self.board.possible_moves_dict = moves
+                # self.print_moves()
 
             # Draws all the tiles and pieces on the board
             self.board.draw_board()
@@ -96,7 +97,7 @@ class Chess:
                     if Board.coord_in_board(self.board.mouse_pos): 
                         # active_tile.piece.move(active_tile, board.tiles[rel_y][rel_x])
                         from_coord = (active_tile.tile_x, active_tile.tile_y)
-                        if self.board.make_move((from_coord, (rel_x, rel_y))):
+                        if self.board.player_move((from_coord, (rel_x, rel_y))):
                             print("Player made move")
                             self.board.next_turn()
                         active_tile = None
@@ -130,12 +131,8 @@ class Chess:
                         self.board.next_turn()
                         self.ai_move_arr.pop()
                         self.determining_moves = False
-                    else:
-                        print("Issue with ai move")
 
             self.screen.blit(self.board.mask_layer, (0, 0))
-
-            #print(f"LEN OF AI_MOVE_ARR IS {len(self.ai_move_arr)}")
 
             pygame.display.update()
             self.clock.tick(60)
