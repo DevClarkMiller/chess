@@ -20,57 +20,67 @@ class Piece:
         
         self.possible_moves = None
 
+    # Fn: set_image()
+    # Brief: Sets the image that gets displayed for the current piece when the board is drawn
     def set_image(self):
         img_path = Piece.get_img_path(self.piece_c, self.color)
         if img_path:
             self.img = pygame.image.load(img_path)
             self.img = pygame.transform.scale(self.img, (self.width, self.height))
     
+    # Fn: set_coords()
+    # Brief: Sets the coordinates for the current piece 
+    # Params: - coords: The new coordinates of the piece
     def set_coords(self, coords):
         self.x, self.y = coords
 
+    # Fn: piece_is_enemy()
+    # Brief: Useful for finding potential piece movements
+    # Params: - tile: A tile object
+    # Return: Boolean if the provided tile is an enemy
     def piece_is_enemy(self, tile):
         return tile.piece and tile.piece.color != self.color
     
+    # Fn: tile_available()
+    # Brief: Useful for finding potential piece movements
+    # Params: - tile: A tile object
+    # Return: Boolean if the provided tile is empty or an enemy piece
     def tile_available(self, tile):
         return tile.piece is None or (self.piece_is_enemy(tile))
 
+    # Fn: make_piece()
+    # Brief: Returns the correct child object that matches the piece_c,
+    # this function is useful for getting the correct piece types from the starting_locations json file
+    # Params: - piece_c: The char indicating the type of piece
+    # Return: The subclass of piece matching the piece_c
     @staticmethod
-    def make_piece(piece):
-        if piece == "r": return Rook
-        elif piece == "n": return Knight
-        elif piece == "b": return Bishop
-        elif piece == "k": return King
-        elif piece == "q": return Queen
-        elif piece == "p": return Pawn
+    def make_piece(piece_c):
+        if piece_c == "r": return Rook
+        elif piece_c == "n": return Knight
+        elif piece_c == "b": return Bishop
+        elif piece_c == "k": return King
+        elif piece_c == "q": return Queen
+        elif piece_c == "p": return Pawn
 
+    # Fn: get_img_path()
+    # Brief: Gets the correct image path for the needed piece
+    # Params: - piece_c: The char indicating the type of piece
+    #         - color: The color of the piece
+    # Return: string of the image path for the piece
     @staticmethod
-    def get_img_path(piece, color):
-        return imgs_dict[f"{piece}{color}.png"]
-    
-    # Checks the available moves this piece is able to go to, returns list of moves
-    @abstractmethod
-    def get_moves(self, board): pass
+    def get_img_path(piece_c, color):
+        return imgs_dict[f"{piece_c}{color}.png"]
 
-    # Moves the piece to the desired location if it's possible,
-    # it knows if it's possible by checking if the potential move is
-    # in the moves list
-    # Returns the value of the move, which will be subtracted from the opposing players score on the board object
-    def move(self, og_tile, tile): 
+
+    # Fn: move()
+    # Brief: Transfers the current piece from one tile to another
+    # Params: - og_tile: The move_from tile
+    #         - tile: The move_to tile
+    @staticmethod
+    def move(og_tile, tile): 
         if og_tile == tile: return
 
-        # Func which checks if the piece is a pawn and is able to turn into a queen
-        def queen_morphable(og_tile, move_tile):
-            if og_tile.piece.piece_c == "p" and (move_tile.tile_y == 0 or move_tile.tile_y == 7):
-                return True
-            return False
-
-
-        # Set the current piece on the new tile or morphs into a queen if possible
-        tile.piece = self 
-        if queen_morphable(og_tile, tile):
-            tile.piece = Queen(og_tile.piece.color, tile.tile_x, tile.tile_y, self.width, self.height)
-            tile.piece.set_image()
+        tile.piece = og_tile.piece
 
         tile.piece.set_coords((tile.tile_x, tile.tile_y))
         og_tile.piece = None    # Reset the tile you moved from

@@ -1,5 +1,5 @@
 from math import inf
-import pygame, ai, threading, queue, sys
+import pygame, ai, threading, queue, sys, os
 from chess_board import Board
 from globals import init_pieces_icons, TILES_IN_ROW
 
@@ -27,7 +27,10 @@ class Chess:
         self.determining_moves = False
 
     def determine_move(self):
-    # Adds the minimax check onto the queue of the thread
+        # Adds the minimax check onto the queue of the thread
+        f = open("board-output.txt", "w")
+        f.write("")
+        f.close()
         self.determining_moves = True
         #self.ai_move.put(ai.minimax(self.board.copy(), 3, inf, -inf, True, "b")[0])
         self.ai_move_arr.append(ai.minimax(self.board.copy(), 3, inf, -inf, True, "b")[0])
@@ -48,7 +51,6 @@ class Chess:
             if self.board.active_player == "w":
                 moves = self.board.get_possible_moves()
                 self.board.possible_moves_dict = moves
-                # self.print_moves()
 
             # Draws all the tiles and pieces on the board
             self.board.draw_board()
