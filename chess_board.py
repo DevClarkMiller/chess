@@ -1,5 +1,5 @@
 import pygame, json
-from globals import BLACK, WHITE, YELLOW, BLUE, RED, TILES_IN_ROW, draw_opaque_rect, piece_values
+from globals import BLACK, WHITE, YELLOW, BLUE, RED, TILES_IN_ROW, draw_opaque_rect, piece_values, center_axis
 from chess_tile import Tile
 import chess_piece
 
@@ -36,6 +36,52 @@ class Board:
         # Save the location of the kings coords so that when needed to see if they're in check, don't have to iterate tiles to find each location
         self.whiteKingCoords = None
         self.blackKingCoords = None
+
+        self.active_tile = None
+
+    def draw(self, layer, coords):
+        self.screen.blit(layer, coords)
+
+    def select_piece(self):
+        rel_x, rel_y = self.mouse_pos
+        if self.tiles[rel_y][rel_x]:    # Check if tile exists   
+            tile = self.tiles[rel_y][rel_x]
+            if tile.piece != None and tile.piece.color == "w" and tile.piece.color == self.active_player:
+                # Resets the being dragged state of whatever piece was picked up
+                if self.active_tile:
+                    self.active_tile.piece.being_dragged = False
+
+                self.active_tile = tile
+                self.active_tile.piece.being_dragged = True
+
+    def place_piece(self):
+        rel_x, rel_y = self.mouse_pos
+        self.active_tile.piece.being_dragged = False
+        if Board.coord_in_board(self.mouse_pos): 
+            # active_tile.piece.move(active_tile, board.tiles[rel_y][rel_x])
+            from_coord = (self.active_tile.tile_x, self.active_tile.tile_y)
+            if self.player_move((from_coord, (rel_x, rel_y))):
+                print("Player made move")
+                self.possible_moves_dict = {} # Empty out the possible moves dict so that the moves can be determined again
+                self.next_turn()
+            self.active_tile = None
+
+    def drag_piece(self, mouse_pos):
+        if self.active_tile is None: return
+        
+        mouse_x, mouse_y = mouse_pos
+        piece = self.active_tile.piece
+        piece_img = piece.img
+
+        # Centers the dragged tile to the middle of the mouse
+        img_width, img_height = piece_img.get_size()
+        
+        centered_x = center_axis(mouse_x, img_width)
+        centered_y = center_axis(mouse_y, img_height)
+
+        self.draw(piece_img, (centered_x, centered_y))
+        possible_moves = self.possible_moves_dict.get((piece.x, piece.y))
+        self.draw_possible_moves(possible_moves)
 
     def in_check_after_move(self, move_og, move_dest, color):
         tile_og = self.tiles[move_og[1]][move_og[0]]
@@ -74,8 +120,7 @@ class Board:
         # Restore piece positions
         tile_og.piece = piece_og
         tile_dest.piece = piece_dest
-        chess_piece.Piece.move()
-        tile_og.piece.set_coords(tile_og.tile_x, tile_og.tile_y)
+        tile_og.piece.set_coords((tile_og.tile_x, tile_og.tile_y))
 
         return in_check
 
@@ -92,7 +137,8 @@ class Board:
             for move_to in enemy_moves[move_from]:
                 # print(f"MOVE TO {move_to} | KING COORDS {king_coords}")
                 if move_to == king_coords:
-                    print(f"{self.tiles[king_coords[1]][king_coords[0]]} KING IS IN CHECK")
+                    # print(f"{self.tiles[king_coords[1]][king_coords[0]].piece.color} KING IS IN CHECK AT {king_coords}")
+                    # print(f"THE PIECE AT {move_from} IS THE CULPRIT")
                     return True
 
         return False
@@ -302,7 +348,7 @@ class Board:
     # player is aware of where they're able to move to
     # Params: - moves: A list of possible moves that a piece can move to
     def draw_possible_moves(self, moves):
-        if moves == None: return
+        if moves == None or moves == False: return
         for move in moves:
             # Uses mask layer instead so that tile drawing doesn't draw over the move display
             draw_opaque_rect(self.mask_layer, self.tiles[move[1]][move[0]], BLUE, 128)
@@ -360,11 +406,6 @@ class Board:
     # location as the key and the value being a list of possible to locations
     # Return: The dictionary of possible moves on the board for the active player
     def get_possible_moves(self, color, check_check=True):
-        king_in_check = False
-        if check_check: 
-            king_in_check = self.in_check(self.active_player)
-
-        tiles = self.tiles
         moves = {}
 
         def get_moves(piece, col, row):
@@ -372,29 +413,19 @@ class Board:
             if piece_moves != None:
                 moves[(col, row)] = piece_moves
 
-        if not king_in_check:
-            for row in range(0, TILES_IN_ROW):
-                for col in range(0, TILES_IN_ROW):
-                    tile = tiles[row][col]
+        for row in range(0, TILES_IN_ROW):
+            for col in range(0, TILES_IN_ROW):
+                tile = self.tiles[row][col]
+                piece = tile.piece
+                if piece:
+                    if piece.color == color:
+                        get_moves(piece, col, row)       
 
-                    piece = tile.piece
-
-                    if piece:
-                        if piece.color == color:
-                            get_moves(piece, col, row)       
-                        
-        else:   # Get the moves for the king that's in check
-            # TODO - CHANGE TO GET MOVES FOR ANY PIECE THAT CAN PUT THE KING OUT OF CHECK
-            x = 0
-            y = 0
-            if self.active_player == "w":
-                x, y = self.whiteKingCoords
-            else:
-                x, y = self.blackKingCoords
-            get_moves(tiles[y][x].piece, x, y)
-
-        # Check over the moves to ensure it doesn't put the player in check
+        # Check over the moves to ensure it doesn't put the player in check only if the check_check param is true
         if check_check:
-            pass
+            for move_from in moves:
+                for move_to in moves[move_from]:
+                    if self.in_check_after_move(move_from, move_to, color):
+                        moves[move_from].remove(move_to)
 
         return moves

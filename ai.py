@@ -60,7 +60,6 @@ def minimax(board, depth, alpha, beta, maximizing_player, maximizing_color):
                 board.unmake_move()
                 if current_eval > max_eval:
                     max_eval = current_eval
-                    # if current_eval != 0:
                     best_move = (from_move, to_move)
 
                 alpha = max(alpha, current_eval)

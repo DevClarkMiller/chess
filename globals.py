@@ -7,6 +7,7 @@ YELLOW = (252, 186, 3)
 BLUE = (3, 127, 252)
 RED = (235, 64, 52)
 TILES_IN_ROW = 8
+center_axis = lambda axis, measurment: axis - measurment // 2
 
 imgs_dict = {}
 

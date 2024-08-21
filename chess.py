@@ -26,6 +26,12 @@ class Chess:
 
         self.determining_moves = False
 
+    def draw(self, layer, coords):
+        self.screen.blit(layer, coords)
+
+    def draw_mask(self):
+        self.draw(self.board.mask_layer, (0, 0))
+
     def determine_move(self):
         # Adds the minimax check onto the queue of the thread
         f = open("board-output.txt", "w")
@@ -41,38 +47,26 @@ class Chess:
         t = threading.Thread(target=self.determine_move)
         run = True
         mouse_pos = None
-        active_tile = None
 
         while run and not self.board.game_over:
             self.screen.fill((255, 255, 255))  # Refreshes screen
             self.board.mask_layer.fill((0, 0, 0, 0))
 
             # Gets all possible moves 
-            if self.board.active_player == "w":
+            if self.board.active_player == "w" and not self.board.possible_moves_dict:
+                print("Gathering possible moves for player")
                 moves = self.board.get_possible_moves(self.board.active_player)
                 self.board.possible_moves_dict = moves
 
             # Draws all the tiles and pieces on the board
             self.board.draw_board()
-            self.board.check_mouse_hover()
-
-            if active_tile != None:
-                mouse_x, mouse_y = mouse_pos
-                piece_img = active_tile.piece.img
-
-                # Centers the dragged tile to the middle of the mouse
-                img_width, img_height = piece_img.get_size()
-                centered_x = mouse_x - img_width // 2
-                centered_y = mouse_y - img_height // 2
-
-                self.screen.blit(piece_img, (centered_x, centered_y))
-                piece = active_tile.piece
-                possible_moves = self.board.possible_moves_dict.get((piece.x, piece.y))
-                if possible_moves != None:
-                    self.board.draw_possible_moves(possible_moves)
 
             mouse_pos = pygame.mouse.get_pos()
             self.board.set_mouse_rel(mouse_pos)  # Sets the relative mouse position to the coords on the board
+
+            self.board.check_mouse_hover()
+
+            self.board.drag_piece(mouse_pos) # Move the selected piece with the mouse, while drawing possible moves
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -80,29 +74,11 @@ class Chess:
 
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:
-                        # Get the tile at the relative mouse pos
-                        rel_x, rel_y = self.board.mouse_pos
-                        if self.board.tiles[rel_y][rel_x]:      
-                            tile = self.board.tiles[rel_y][rel_x]
-                            if tile.piece != None and tile.piece.color == "w" and tile.piece.color == self.board.active_player:
-                                # Resets the being dragged state of whatever piece was picked up
-                                if active_tile:
-                                    active_tile.piece.being_dragged = False
-
-                                active_tile = tile
-                                active_tile.piece.being_dragged = True
+                       self.board.select_piece()
 
                 # Check what the mouses new pos will be. If valid, then move here
-                if event.type == pygame.MOUSEBUTTONUP and active_tile != None:
-                    rel_x, rel_y = self.board.mouse_pos
-                    active_tile.piece.being_dragged = False
-                    if Board.coord_in_board(self.board.mouse_pos): 
-                        # active_tile.piece.move(active_tile, board.tiles[rel_y][rel_x])
-                        from_coord = (active_tile.tile_x, active_tile.tile_y)
-                        if self.board.player_move((from_coord, (rel_x, rel_y))):
-                            print("Player made move")
-                            self.board.next_turn()
-                        active_tile = None
+                if event.type == pygame.MOUSEBUTTONUP and self.board.active_tile != None:
+                    self.board.place_piece()
                 
             # Tell ai to determine their move
             #self.lock.acquire()
@@ -125,16 +101,15 @@ class Chess:
                 and len(self.ai_move_arr) > 0
                 and not self.board.game_over):
                 #move = self.ai_move.get()
-                move = self.ai_move_arr[-1] 
+                move = self.ai_move_arr.pop()
                 print(f"AI MOVING FROM {move[0]} TO {move[1]}")
-                #print("AI NOW GOING TO MAKE MOVE")
+
                 if move != None and move[0] != None and move[1] != None:
                     if self.board.make_move((move[0], move[1])):
                         self.board.next_turn()
-                        self.ai_move_arr.pop()
                         self.determining_moves = False
 
-            self.screen.blit(self.board.mask_layer, (0, 0))
+            self.draw_mask()
 
             pygame.display.update()
             self.clock.tick(60)
