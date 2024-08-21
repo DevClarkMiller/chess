@@ -25,6 +25,8 @@ def draw_opaque_rect(screen, rect, color, alpha):
     # Blit this surface onto the destination surface (which could be the mask layer)
     screen.blit(s, (rect.x, rect.y))
 
+central_tiles = [(3, 4), (4, 4), (3, 4), (4, 3)]
+
 # The value for each of the pieces
 piece_values = {
     "p": 10,
@@ -34,3 +36,8 @@ piece_values = {
     "q": 90,
     "k": 900
 }
+
+class Position_Values(Enum):
+    CentralControl = 1
+    RookOpenTile = 2
+    RookOnSvnth = 2

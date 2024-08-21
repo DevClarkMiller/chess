@@ -54,7 +54,7 @@ class Chess:
 
             # Gets all possible moves 
             if self.board.active_player == "w" and not self.board.possible_moves_dict:
-                print("Gathering possible moves for player")
+                # print("Gathering possible moves for player")
                 moves = self.board.get_possible_moves(self.board.active_player)
                 self.board.possible_moves_dict = moves
 
@@ -102,7 +102,11 @@ class Chess:
                 and not self.board.game_over):
                 #move = self.ai_move.get()
                 move = self.ai_move_arr.pop()
-                print(f"AI MOVING FROM {move[0]} TO {move[1]}")
+                try:
+                    print(f"AI MOVING FROM {move[0]} TO {move[1]}")
+                except Exception as ex:
+                    print(ex)
+                    print(move)
 
                 if move != None and move[0] != None and move[1] != None:
                     if self.board.make_move((move[0], move[1])):

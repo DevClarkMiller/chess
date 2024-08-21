@@ -1,5 +1,5 @@
-import pygame, json
-from globals import BLACK, WHITE, YELLOW, BLUE, RED, TILES_IN_ROW, draw_opaque_rect, piece_values, center_axis
+import pygame, json, random, colors
+from globals import TILES_IN_ROW, draw_opaque_rect, piece_values, center_axis, central_tiles, Position_Values
 from chess_tile import Tile
 import chess_piece
 
@@ -8,7 +8,6 @@ class Board:
         self.screen = screen
         # The mask layer allows me to draw things that can't be drawn over with tiles or pieces
         self.mask_layer = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
-        # self.mask_layer.set_alpha(128)
         
         self.width = width
         self.height = height
@@ -44,6 +43,7 @@ class Board:
 
     def select_piece(self):
         rel_x, rel_y = self.mouse_pos
+        if not Board.coord_in_board((rel_x, rel_y)): return
         if self.tiles[rel_y][rel_x]:    # Check if tile exists   
             tile = self.tiles[rel_y][rel_x]
             if tile.piece != None and tile.piece.color == "w" and tile.piece.color == self.active_player:
@@ -82,73 +82,14 @@ class Board:
         self.draw(piece_img, (centered_x, centered_y))
         possible_moves = self.possible_moves_dict.get((piece.x, piece.y))
         self.draw_possible_moves(possible_moves)
-
-    def in_check_after_move(self, move_og, move_dest, color):
-        tile_og = self.tiles[move_og[1]][move_og[0]]
-        tile_dest = self.tiles[move_dest[1]][move_dest[0]]
-
-        piece_og = tile_og.piece
-        piece_dest = tile_dest.piece
-
-        king_coords = None
-
-        if piece_og.piece_c == "k":
-            if color == "b":
-                king_coords = self.blackKingCoords
-            else:
-                king_coords = self.whiteKingCoords
-
-        # Move piece over from og tile to dest tile
-        chess_piece.Piece.move(tile_og, tile_dest)
-
-        if piece_og.piece_c == "k":
-            if color == "b":
-                self.blackKingCoords = (tile_dest.piece.x, tile_dest.piece.y)
-            else:
-                self.whiteKingCoords = (tile_dest.piece.x, tile_dest.piece.y)
-
-        # See if in check now that the piece has been moved
-        in_check = self.in_check(color)
-
-        # Restore the kings coordinates
-        if piece_og.piece_c == "k":
-            if color == "b":
-                self.blackKingCoords = king_coords
-            else:
-                self.whiteKingCoords = king_coords
-
-        # Restore piece positions
-        tile_og.piece = piece_og
-        tile_dest.piece = piece_dest
-        tile_og.piece.set_coords((tile_og.tile_x, tile_og.tile_y))
-
-        return in_check
-
-    # Fn: in_check()
-    # Brief: Checks the kings locations to see if there's any way they are in check
-    # Params: - color: The color of the players king that needs to be checked
-    # Return: Boolean if active players king is in check
-    def in_check(self, color):
-        king_coords = self.blackKingCoords if color == "b" else self.whiteKingCoords
-        enemy_color = "w" if color == "b" else "b"
-        enemy_moves = self.get_possible_moves(enemy_color, check_check=False)
-
-        for move_from in enemy_moves: # Iterate over each of the possible moves in the dict
-            for move_to in enemy_moves[move_from]:
-                # print(f"MOVE TO {move_to} | KING COORDS {king_coords}")
-                if move_to == king_coords:
-                    # print(f"{self.tiles[king_coords[1]][king_coords[0]].piece.color} KING IS IN CHECK AT {king_coords}")
-                    # print(f"THE PIECE AT {move_from} IS THE CULPRIT")
-                    return True
-
-        return False
     
-    def print_moves(self, moves):
+    @staticmethod
+    def print_moves(moves):
         print("------------------------------------------------------------------")
         for from_coord in moves:
             # Array of to moves from key
             print(f"[{from_coord[0]}, {from_coord[1]}]  -> ", end="")
-            for to_coord in moves(from_coord):
+            for to_coord in moves[from_coord]:
                 if to_coord:
                     print(f"[{to_coord[0]}, {to_coord[1]}], ", end="")
             print() # For newline
@@ -218,6 +159,10 @@ class Board:
             return False
         
         return self.make_move(move)
+    
+    def is_central_tile(self, tile):
+        tile_coords = (tile.tile_x, tile.tile_y)
+        return tile_coords in central_tiles
 
     # Fn: make_move()
     # Brief: Moves a piece from one tile to another, which can defeat a piece in the process
@@ -241,12 +186,17 @@ class Board:
             "blackKingCoords": self.blackKingCoords
         }
         self.past_moves.append(previous_state)
-        
-        if dest_tile.piece:
-            if self.active_player == "w":
+
+        if self.active_player == "w":
+            if dest_tile.piece:
                 self.black_score -= piece_values[dest_tile.piece.piece_c]
-            else:
+            elif self.is_central_tile(dest_tile):
+                self.white_score += Position_Values.CentralControl.value
+        else:
+            if dest_tile.piece:
                 self.white_score -= piece_values[dest_tile.piece.piece_c]
+            elif self.is_central_tile(dest_tile):
+                self.black_score += Position_Values.CentralControl.value
 
         if og_tile.piece:
             og_color = og_tile.piece.color
@@ -324,7 +274,7 @@ class Board:
         for row in range(0, TILES_IN_ROW):
             for col in range(0, TILES_IN_ROW):
                 # If height + width is even, tile is white, else it's black
-                color = WHITE if ((row + col) % 2) == 0 else BLACK
+                color = colors.WHITE if ((row + col) % 2) == 0 else colors.BLACK
 
                 self.tiles[row][col] = Tile(self.tile_width, self.tile_height, col, row, color)
                 tile = self.tiles[row][col]
@@ -351,7 +301,7 @@ class Board:
         if moves == None or moves == False: return
         for move in moves:
             # Uses mask layer instead so that tile drawing doesn't draw over the move display
-            draw_opaque_rect(self.mask_layer, self.tiles[move[1]][move[0]], BLUE, 128)
+            draw_opaque_rect(self.mask_layer, self.tiles[move[1]][move[0]], colors.BLUE, 128)
 
     # Fn: check_mouse_hover()
     # Brief: Checks the players mouse positioning and if it's valid, it will draw a border around the tile 
@@ -363,7 +313,7 @@ class Board:
             tile = self.tiles[y][x]
             if tile.piece and tile.piece.color != "w" or tile.piece == None or self.active_player != "w": return
             # Draws a yellow border around the tile your mouse is currently over
-            pygame.draw.rect(self.mask_layer, YELLOW, (tile.x, tile.y, self.tile_width, self.tile_width), 5)
+            pygame.draw.rect(self.mask_layer, colors.YELLOW, (tile.x, tile.y, self.tile_width, self.tile_width), 5)
 
             # Draw possible moves
             piece_moves = self.possible_moves_dict.get((x, y))
@@ -400,17 +350,89 @@ class Board:
         self.mouse_pos = (x, y)
         # print(f"Mouse pos is: {self.mouse_pos}")
         return (x, y)
+    
+    # Fn: in_check()
+    # Brief: Checks the kings locations to see if there's any way they are in check
+    # Params: - color: The color of the players king that needs to be checked
+    # Return: Boolean if active players king is in check
+    def in_check(self, color):
+        king_coords = self.blackKingCoords if color == "b" else self.whiteKingCoords
+
+        for row in range(0, TILES_IN_ROW):
+            for col in range(0, TILES_IN_ROW):
+                tile = self.tiles[row][col]
+                piece_enemy = chess_piece.Piece.piece_is_enemy(tile, color)
+                if piece_enemy:
+                    moves = tile.piece.get_moves(self)
+                    if moves is None: continue
+                    for move in moves:
+                        if move[0] == king_coords[0] and move[1] == king_coords[1]:
+                            return True
+
+        return False
+    
+    def in_check_after_move(self, move_og, move_dest, color):
+        tile_og = self.tiles[move_og[1]][move_og[0]]
+        tile_dest = self.tiles[move_dest[1]][move_dest[0]]
+
+        piece_og = tile_og.piece
+        piece_dest = tile_dest.piece
+
+        king_coords = None
+
+        if piece_og.piece_c == "k":
+            if color == "b":
+                king_coords = self.blackKingCoords
+            else:
+                king_coords = self.whiteKingCoords
+
+        # Move piece over from og tile to dest tile
+        chess_piece.Piece.move(tile_og, tile_dest)
+
+        if piece_og.piece_c == "k":
+            if color == "b":
+                self.blackKingCoords = (tile_dest.piece.x, tile_dest.piece.y)
+            else:
+                self.whiteKingCoords = (tile_dest.piece.x, tile_dest.piece.y)
+
+        # See if in check now that the piece has been moved
+        in_check = self.in_check(color)
+
+        # Restore the kings coordinates
+        if piece_og.piece_c == "k":
+            if color == "b":
+                self.blackKingCoords = king_coords
+            else:
+                self.whiteKingCoords = king_coords
+
+        # Restore piece positions
+        tile_og.piece = piece_og
+        tile_dest.piece = piece_dest
+        tile_og.piece.set_coords((tile_og.tile_x, tile_og.tile_y))
+
+        return in_check
+    
+    # Fn: randomize_moves()
+    # Brief: Randomizes each array of to moves in the dictionary of possible moves
+    # Params: = possible_moves: dictionary of possible moves
+    def randomize_moves(self, possible_moves):
+        for move_from in possible_moves:
+            moves_to = possible_moves[move_from]
+            random.shuffle(moves_to)
 
     # Fn: get_possible_moves()
     # Brief: Checks the possible moves of each of the pieces on the board and appends them to a dictionary with the from
     # location as the key and the value being a list of possible to locations
     # Return: The dictionary of possible moves on the board for the active player
-    def get_possible_moves(self, color, check_check=True):
+    def get_possible_moves(self, color, rand_moves=False):
         moves = {}
 
         def get_moves(piece, col, row):
             piece_moves = piece.get_moves(self)
             if piece_moves != None:
+                for move in piece_moves:
+                    if self.in_check_after_move((col, row), move, color):
+                        piece_moves.remove(move)
                 moves[(col, row)] = piece_moves
 
         for row in range(0, TILES_IN_ROW):
@@ -421,11 +443,6 @@ class Board:
                     if piece.color == color:
                         get_moves(piece, col, row)       
 
-        # Check over the moves to ensure it doesn't put the player in check only if the check_check param is true
-        if check_check:
-            for move_from in moves:
-                for move_to in moves[move_from]:
-                    if self.in_check_after_move(move_from, move_to, color):
-                        moves[move_from].remove(move_to)
-
+        if rand_moves:  # Useful for the ai so that it doesn't just make the same moves every single game
+            self.randomize_moves(moves)
         return moves

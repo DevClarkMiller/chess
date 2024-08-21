@@ -18,8 +18,6 @@ class Piece:
 
         self.being_dragged = False
         
-        self.possible_moves = None
-
     # Fn: set_image()
     # Brief: Sets the image that gets displayed for the current piece when the board is drawn
     def set_image(self):
@@ -38,15 +36,16 @@ class Piece:
     # Brief: Useful for finding potential piece movements
     # Params: - tile: A tile object
     # Return: Boolean if the provided tile is an enemy
-    def piece_is_enemy(self, tile):
-        return tile.piece and tile.piece.color != self.color
+    @staticmethod
+    def piece_is_enemy(tile, color):
+        return tile.piece and tile.piece.color != color
     
     # Fn: tile_available()
     # Brief: Useful for finding potential piece movements
     # Params: - tile: A tile object
     # Return: Boolean if the provided tile is empty or an enemy piece
     def tile_available(self, tile):
-        return tile.piece is None or (self.piece_is_enemy(tile))
+        return tile.piece is None or Piece.piece_is_enemy(tile, self.color)
 
     # Fn: make_piece()
     # Brief: Returns the correct child object that matches the piece_c,
@@ -112,7 +111,7 @@ class Piece:
             y += y_mod
 
             # If the piece is a pawn, it can't move forward if there's an enemy in the way
-            if can_move_x and can_move_y and self.tile_available(tiles[y][x]):
+            if (can_move_x and can_move_y) and self.tile_available(tiles[y][x]):
                 if self.piece_c == "p" and tiles[y][x].piece:
                     return
                 
@@ -120,7 +119,7 @@ class Piece:
                 num_moves += 1
 
                 # The enemy is the farthest a piece can move to, so it breaks from the loop when one is reached
-                if self.piece_is_enemy(tiles[y][x]):
+                if Piece.piece_is_enemy(tiles[y][x], self.color):
                     return
             else:
                 return
@@ -236,12 +235,12 @@ class Pawn(Piece):
         self.get_omni_moves(0, y_mod, moves, tiles)          
 
         # 2. Check both diagonals
-        upper_diag_in_bound = lambda x : 0 <= x < TILES_IN_ROW and 0 <= (self.y + y_mod) < TILES_IN_ROW
+        upper_diag_in_bound = lambda x : (0 <= x < TILES_IN_ROW) and (0 <= (self.y + y_mod) < TILES_IN_ROW)
         
-        if upper_diag_in_bound(self.x - 1) and self.piece_is_enemy(board.tiles[self.y + y_mod][self.x - 1]):
+        if upper_diag_in_bound(self.x - 1) and Piece.piece_is_enemy(board.tiles[self.y + y_mod][self.x - 1], self.color):
             moves.append((self.x - 1, self.y + y_mod))
 
-        if upper_diag_in_bound(self.x + 1) and self.piece_is_enemy(board.tiles[self.y + y_mod][self.x + 1]):
+        if upper_diag_in_bound(self.x + 1) and Piece.piece_is_enemy(board.tiles[self.y + y_mod][self.x + 1], self.color):
             moves.append((self.x + 1, self.y + y_mod))
 
         return moves if len(moves) > 0 else None
