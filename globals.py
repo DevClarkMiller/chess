@@ -41,3 +41,5 @@ class Position_Values(Enum):
     CentralControl = 1
     RookOpenTile = 2
     RookOnSvnth = 2
+    OpenFile = 2
+    OpenRank = 1

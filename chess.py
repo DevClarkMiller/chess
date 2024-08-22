@@ -40,7 +40,6 @@ class Chess:
         self.determining_moves = True
         #self.ai_move.put(ai.minimax(self.board.copy(), 3, inf, -inf, True, "b")[0])
         self.ai_move_arr.append(ai.minimax(self.board.copy(), 3, -inf, inf, True, "b")[0])
-        print("Just finished determining the ais moves!")
         sys.exit()  # Exit thread after a move is found
 
     def main_game(self):

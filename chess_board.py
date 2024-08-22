@@ -30,7 +30,7 @@ class Board:
         self.white_score = 1290
         self.black_score = 1290
         
-        self.game_over = False
+        self.game_over = None
 
         # Save the location of the kings coords so that when needed to see if they're in check, don't have to iterate tiles to find each location
         self.whiteKingCoords = None
@@ -160,9 +160,100 @@ class Board:
         
         return self.make_move(move)
     
+    # Fn: is_central_tile()
+    # Brief: Evaluates if the tile is in the center squares, which is worth points for moving into as a player
+    # Params: - tile: The tile that needs to be checked
+    # Return: Boolean if the tile is a central tile
     def is_central_tile(self, tile):
         tile_coords = (tile.tile_x, tile.tile_y)
         return tile_coords in central_tiles
+    
+    # Fn: is_open_rank()
+    # Brief: Useful for checking if the rooks or queens are in the open for positional point scoring
+    # Params: - tile: The tile that needs to be checked
+    # Return: Boolean if the tile is in an open rank
+    def is_open_rank(self, tile):
+        y = tile.tile_y
+
+        # Check entire column to see if there's any pawns present, if not then then it's an open file
+        for x in range(TILES_IN_ROW):
+            if self.piece_at_coords((x, y)):
+                if self.tiles[y][x].piece.piece_c == "p":
+                    return False
+        return True
+    
+    # Fn: is_open_file()
+    # Brief: Useful for checking if the rooks or queens are in the open for positional point scoring
+    # Params: - tile: The tile that needs to be checked
+    # Return: Boolean if the tile is in an open file
+    def is_open_file(self, tile):
+        x = tile.tile_x
+
+        # Check entire column to see if there's any pawns present, if not then then it's an open file
+        for y in range(TILES_IN_ROW):
+            if self.piece_at_coords((x, y)):
+                if self.tiles[y][x].piece.piece_c == "p":
+                    return False
+        return True
+    
+    # Fn: on_seventh_rank()
+    # Brief: Determines if a tile lies on the seventh rank
+    def on_seventh_rank(self, tile):
+        y = 1 if self.active_player == "w" else 6
+        return tile.tile_y == y
+    
+    # Fn: get_move_penalties()
+    # Brief: Gets the penalties a move gives, ie) taking back a move
+    # Params    - og_tile: Tile that's being moved from
+    #           - dest_tile: Tile that's being moved to
+    def get_move_penalties(self, og_tile, dest_tile):
+        pass
+
+    # Fn: get_move_scores
+    # Brief: Gets the positives from moving to a tile
+    # Params    - og_tile: Tile that's being moved from
+    #           - dest_tile: Tile that's being moved to
+    def get_move_scores(self, og_tile, dest_tile):
+        tile_is_central = self.is_central_tile(dest_tile)
+        dest_has_piece = dest_tile.piece != None
+
+        material_score = 0  # What's going to be removed from the opposing player
+        pos_score = 0  # What's being granted to the active player 
+        if dest_has_piece:
+            og_piece_value = piece_values[og_tile.piece.piece_c]
+            dest_piece_value = piece_values[dest_tile.piece.piece_c]
+
+            # Check if the piece moving into the dest is worth less than the dest piece
+            if og_piece_value < dest_piece_value:
+                # Removes even more from material score to discourage sacrificing expensive pieces for small gains
+                material_score -= (dest_piece_value - og_piece_value)   
+
+            material_score -= dest_piece_value
+
+        og_piece_rook_or_queen = og_tile.piece.piece_c == "q" or og_tile.piece.piece_c == "r"
+
+        # Only award for moving into central tiles if the piece wasn't already in one
+        if tile_is_central and not self.is_central_tile(og_tile):   
+            pos_score += Position_Values.CentralControl.value
+
+        if dest_has_piece and tile_is_central:
+            material_score -= Position_Values.CentralControl.value
+        
+        # Only award for moving to an open file or rank if you weren't already in one
+        if not self.is_open_file(og_tile) and self.is_open_file(dest_tile) and og_piece_rook_or_queen:
+            pos_score += Position_Values.OpenFile.value
+        if not self.is_open_rank(og_tile) and self.is_open_rank(dest_tile) and og_piece_rook_or_queen:
+            pos_score += Position_Values.OpenRank.value
+
+        if not self.on_seventh_rank(og_tile) and self.on_seventh_rank(dest_tile):
+            pos_score += Position_Values.RookOnSvnth.value
+
+        if self.active_player == "w":
+            self.white_score += pos_score
+            self.black_score -= material_score
+        else:
+            self.black_score += pos_score
+            self.white_score -= material_score  
 
     # Fn: make_move()
     # Brief: Moves a piece from one tile to another, which can defeat a piece in the process
@@ -187,24 +278,7 @@ class Board:
         }
         self.past_moves.append(previous_state)
 
-        tile_is_central = self.is_central_tile(dest_tile)
-        dest_has_piece = dest_tile.piece != None
-
-        material_score = 0
-        pos_score = 0
-        if dest_has_piece:
-            material_score -= piece_values[dest_tile.piece.piece_c]
-        if tile_is_central:
-            pos_score += Position_Values.CentralControl.value
-        if dest_has_piece and tile_is_central:
-            material_score -= Position_Values.CentralControl.value
-
-        if self.active_player == "w":
-            self.white_score += pos_score
-            self.black_score -= material_score
-        else:
-            self.black_score += pos_score
-            self.white_score -= material_score  
+        self.get_move_scores(og_tile, dest_tile)  
 
         if og_tile.piece:
             og_color = og_tile.piece.color
@@ -226,6 +300,8 @@ class Board:
 
             chess_piece.Piece.move(og_tile, dest_tile)
             return True
+        
+        self.checkmate_stalemate() # Check if there's a checkmate or stalemate after this turn
         return False
 
     # Fn: unmake_move()
@@ -248,15 +324,38 @@ class Board:
         self.tiles[tile2.tile_y][tile2.tile_x] = tile2
 
         self.next_turn()
-
-    # Fn: check_game_over()
-    # Brief: Sets the game_over member to true if a players score goes below the threshold
-    # Return: Boolean if the game is over
-    def check_game_over(self):
-        if self.white_score <= 390 or self.black_score <= 390:
+    
+    def piece_at_coords(self, coords):
+        x, y = coords
+        if self.tiles[y][x].piece:
             return True
         return False
-        
+    
+    # Fn: checkmate_stalemate()
+    # Brief: Checks the board to see if the game has ended by a checkmate or stalemate
+    def checkmate_stalemate(self):
+        legal_moves = 0
+        for row in range(TILES_IN_ROW):
+            for col in range(TILES_IN_ROW):
+                tile = self.tiles[row][col]
+                current_coord = (col, row)
+                if self.piece_at_coords(current_coord) and tile.piece.color == self.active_player:
+                    moves = tile.piece.get_moves(self)
+                    for move in moves:
+                        if not self.in_check_after_move(current_coord, move, self.active_player):
+                            legal_moves +=1
+
+        opponent = None
+        if self.active_player == "w":
+            opponent = "b"
+        else:
+            opponent = "w"
+
+        if legal_moves == 0 and not self.in_check(self.active_player):
+            self.game_over = ("Stalemate", None)
+        elif legal_moves == 0:
+            self.game_over = ("Checkmate", opponent)
+
     # Fn: coord_in_board()
     # Brief: Checks if the coordinate is within the range of the board
     # Params: - Coord: Coordinate that could possibly be on the board
@@ -457,8 +556,5 @@ class Board:
 
         if rand_moves:  # Useful for the ai so that it doesn't just make the same moves every single game
             self.randomize_moves(moves)
-
-        if color == "b":
-            pass
         
         return moves
