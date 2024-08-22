@@ -34,7 +34,7 @@ piece_values = {
     "b": 30,
     "r": 50,
     "q": 90,
-    "k": 900
+    #"k": 900
 }
 
 class Position_Values(Enum):

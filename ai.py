@@ -46,26 +46,15 @@ def evaluate(board, maximizing_color):
 
 def minimax(board, depth, alpha, beta, maximizing_player, maximizing_color):
     if depth == 0 or board.game_over:
-        # if maximizing_player:
-        #     output_board(board, maximizing_color, depth)
         return None, evaluate(board, maximizing_color)  # Only returns the evaluation at depth 0
     
     possible_moves = board.get_possible_moves(board.active_player) # Give this parameter so that the 
 
-    if len(possible_moves) == 0:
-        print("NO MOVES AVAILABLE")
+    # If there's no moves, just evauluate the board and return
+    if len(possible_moves) == 0 or possible_moves == {} or possible_moves == None:
         return None, evaluate(board, maximizing_color)
-    
-    # Get a random key
+
     best_move = None
-    try:
-        random_key = random.choice(list(possible_moves))
-        random_move = random.choice(possible_moves.get(random_key))
-        best_move = (random_key, random_move)
-        # best_move = None
-    except Exception as ex: # If there are no more possible moves left
-        print("No more moves left, now evaluating")
-        return None, evaluate(board, maximizing_color)
 
     # Find maximum value
     if maximizing_player:

@@ -101,11 +101,6 @@ class Chess:
                 and not self.board.game_over):
                 #move = self.ai_move.get()
                 move = self.ai_move_arr.pop()
-                try:
-                    print(f"AI MOVING FROM {move[0]} TO {move[1]}")
-                except Exception as ex:
-                    print(f"Error while doing ai move: {ex}")
-                    print(move)
 
                 if move != None and move[0] != None and move[1] != None:
                     if self.board.make_move((move[0], move[1])):

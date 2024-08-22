@@ -61,7 +61,6 @@ class Board:
             # active_tile.piece.move(active_tile, board.tiles[rel_y][rel_x])
             from_coord = (self.active_tile.tile_x, self.active_tile.tile_y)
             if self.player_move((from_coord, (rel_x, rel_y))):
-                print("Player made move")
                 self.possible_moves_dict = {} # Empty out the possible moves dict so that the moves can be determined again
                 self.next_turn()
             self.active_tile = None
@@ -130,11 +129,6 @@ class Board:
         print(f"SCORE: WHITE - {self.white_score} | BLACK - {self.black_score}")
         print(f"PLAYER: {"WHITE" if self.active_player == "w" else "BLACK"}")
 
-    def print_details(self):
-        print(f"ACTIVE PLAYER: {self.active_player}")
-        print(f"BLACK KING COORDS: {self.blackKingCoords}")
-        print(f"WHITE KING COORDS: {self.whiteKingCoords}")
-
     # Fn: player_move()
     # Brief: Determines if a move is possible to the player based off the boards possible_moves_dict, if so
     # it will call the make_move func and go forward with the move
@@ -202,12 +196,42 @@ class Board:
         y = 1 if self.active_player == "w" else 6
         return tile.tile_y == y
     
+    # Fn: update_scores()
+    # Brief: Deducts the material score from the opposing player and grants the pos score to the active player
+    # Params:   - material_score: 
+    #           - pos_score: 
+    def update_scores(self, material_score, pos_score):
+        if self.active_player == "w":
+            self.white_score += pos_score
+            self.black_score -= material_score
+        else:
+            self.black_score += pos_score
+            self.white_score -= material_score 
+    
+    # Fn: pawn_promotion_dist()
+    # Brief: Returns the distance a pawn is from a promotion, this distance is used to scale the pawns value,
+    # returns null if a promotion isn't possible if the pawn has no moves
+    # Params:   - tile: The tile where the pawn will be
+    def pawn_promotion_dist(self, tile):
+        pass
+    
     # Fn: get_move_penalties()
     # Brief: Gets the penalties a move gives, ie) taking back a move
     # Params    - og_tile: Tile that's being moved from
     #           - dest_tile: Tile that's being moved to
     def get_move_penalties(self, og_tile, dest_tile):
-        pass
+        material_score = 0
+        pos_score = 0
+
+        # Check to see if moving back into previous tile, deduct points if so
+        prev_tile_1 = self.past_moves[-1]["tile1"]   # Gets last index in list
+        og_piece = og_tile.piece
+        prev_piece = prev_tile_1.piece
+        if (prev_piece.piece_c == og_piece.piece_c) and (prev_piece.color == og_piece.color):
+            og_piece_value = piece_values.get(og_piece.piece_c)
+            pos_score -= (og_piece_value // 2) if og_piece_value is not None else 0
+        
+        self.update_scores(material_score, pos_score)
 
     # Fn: get_move_scores
     # Brief: Gets the positives from moving to a tile
@@ -218,10 +242,16 @@ class Board:
         dest_has_piece = dest_tile.piece != None
 
         material_score = 0  # What's going to be removed from the opposing player
-        pos_score = 0  # What's being granted to the active player 
+        pos_score = 0  # What's being granted to the active player
+
+        og_piece_value = piece_values.get(og_tile.piece.piece_c)
+        og_piece_value = 0 if og_piece_value == None else og_piece_value
+        dest_piece_value = 0
+
         if dest_has_piece:
-            og_piece_value = piece_values[og_tile.piece.piece_c]
-            dest_piece_value = piece_values[dest_tile.piece.piece_c]
+            dest_piece_value = piece_values.get(dest_tile.piece.piece_c)
+             
+            dest_piece_value = 0 if dest_piece_value == None else dest_piece_value
 
             # Check if the piece moving into the dest is worth less than the dest piece
             if og_piece_value < dest_piece_value:
@@ -246,14 +276,15 @@ class Board:
             pos_score += Position_Values.OpenRank.value
 
         if not self.on_seventh_rank(og_tile) and self.on_seventh_rank(dest_tile):
-            pos_score += Position_Values.RookOnSvnth.value
+            pos_score += Position_Values.RookOnSvnth.value 
 
-        if self.active_player == "w":
-            self.white_score += pos_score
-            self.black_score -= material_score
-        else:
-            self.black_score += pos_score
-            self.white_score -= material_score  
+        # Check if the opponents piece is a queen and it's being lost early game which is under 10 total moves
+        # If so, deduct even more points from the opposing player when they lose the queen
+        # This is to discourage ai from rushing your king right away and losing its queen
+        if dest_has_piece and dest_tile.piece.piece_c == "q" and len(self.past_moves) < 10:
+            material_score -= og_piece_value
+
+        self.update_scores(material_score, pos_score)
 
     # Fn: make_move()
     # Brief: Moves a piece from one tile to another, which can defeat a piece in the process
@@ -278,7 +309,8 @@ class Board:
         }
         self.past_moves.append(previous_state)
 
-        self.get_move_scores(og_tile, dest_tile)  
+        self.get_move_scores(og_tile, dest_tile)
+        self.get_move_penalties(og_tile, dest_tile)
 
         if og_tile.piece:
             og_color = og_tile.piece.color
