@@ -39,7 +39,7 @@ class Chess:
         f.close()
         self.determining_moves = True
         #self.ai_move.put(ai.minimax(self.board.copy(), 3, inf, -inf, True, "b")[0])
-        self.ai_move_arr.append(ai.minimax(self.board.copy(), 3, inf, -inf, True, "b")[0])
+        self.ai_move_arr.append(ai.minimax(self.board.copy(), 3, -inf, inf, True, "b")[0])
         print("Just finished determining the ais moves!")
         sys.exit()  # Exit thread after a move is found
 
@@ -105,7 +105,7 @@ class Chess:
                 try:
                     print(f"AI MOVING FROM {move[0]} TO {move[1]}")
                 except Exception as ex:
-                    print(ex)
+                    print(f"Error while doing ai move: {ex}")
                     print(move)
 
                 if move != None and move[0] != None and move[1] != None:

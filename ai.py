@@ -9,7 +9,10 @@ from globals import TILES_IN_ROW
 
 #     # Select random element from the dicts key value
 
-def output_board(board, f):
+def output_board(board, maximizing_color, depth):
+    f = open("board-output.txt", "a")
+    f.write(f"Depth: {depth}, Evaluation: {evaluate(board, maximizing_color)}\n")
+    
     # Implement this function to print your board in a readable format
     # For example, if your board is a 2D list, you can loop through and print each row
     for row in range(0, TILES_IN_ROW):
@@ -42,18 +45,16 @@ def evaluate(board, maximizing_color):
         return board.black_score - board.white_score
 
 def minimax(board, depth, alpha, beta, maximizing_player, maximizing_color):
-    #board.print_details()
     if depth == 0 or board.game_over:
-        f = open("board-output.txt", "a")
-        f.write(f"Depth: {depth}, Evaluation: {evaluate(board, maximizing_color)}\n")
-        output_board(board, f)
+        # if maximizing_player:
+        #     output_board(board, maximizing_color, depth)
         return None, evaluate(board, maximizing_color)  # Only returns the evaluation at depth 0
     
     possible_moves = board.get_possible_moves(board.active_player) # Give this parameter so that the 
 
     if len(possible_moves) == 0:
         print("NO MOVES AVAILABLE")
-        return None, None
+        return None, evaluate(board, maximizing_color)
     
     # Get a random key
     best_move = None
@@ -62,9 +63,9 @@ def minimax(board, depth, alpha, beta, maximizing_player, maximizing_color):
         random_move = random.choice(possible_moves.get(random_key))
         best_move = (random_key, random_move)
         # best_move = None
-    except Exception as ex:
-        print(ex)
-        best_move = None
+    except Exception as ex: # If there are no more possible moves left
+        print("No more moves left, now evaluating")
+        return None, evaluate(board, maximizing_color)
 
     # Find maximum value
     if maximizing_player:
@@ -83,10 +84,11 @@ def minimax(board, depth, alpha, beta, maximizing_player, maximizing_color):
                 alpha = max(alpha, current_eval)
                 if beta <= alpha:
                     return best_move, max_eval  
-            return best_move, max_eval
+        return best_move, max_eval
     # Find minumum value
     else:
         min_eval = inf # Worse possible scenario
+        
         for from_move in possible_moves:    # Iterate over all the keys
             to_moves = possible_moves[from_move]
             for to_move in to_moves:

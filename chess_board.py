@@ -187,16 +187,24 @@ class Board:
         }
         self.past_moves.append(previous_state)
 
+        tile_is_central = self.is_central_tile(dest_tile)
+        dest_has_piece = dest_tile.piece != None
+
+        material_score = 0
+        pos_score = 0
+        if dest_has_piece:
+            material_score -= piece_values[dest_tile.piece.piece_c]
+        if tile_is_central:
+            pos_score += Position_Values.CentralControl.value
+        if dest_has_piece and tile_is_central:
+            material_score -= Position_Values.CentralControl.value
+
         if self.active_player == "w":
-            if dest_tile.piece:
-                self.black_score -= piece_values[dest_tile.piece.piece_c]
-            elif self.is_central_tile(dest_tile):
-                self.white_score += Position_Values.CentralControl.value
+            self.white_score += pos_score
+            self.black_score -= material_score
         else:
-            if dest_tile.piece:
-                self.white_score -= piece_values[dest_tile.piece.piece_c]
-            elif self.is_central_tile(dest_tile):
-                self.black_score += Position_Values.CentralControl.value
+            self.black_score += pos_score
+            self.white_score -= material_score  
 
         if og_tile.piece:
             og_color = og_tile.piece.color
@@ -364,6 +372,8 @@ class Board:
                 piece_enemy = chess_piece.Piece.piece_is_enemy(tile, color)
                 if piece_enemy:
                     moves = tile.piece.get_moves(self)
+                    # if color == "w" and moves is not None:
+                    #     print(moves)
                     if moves is None: continue
                     for move in moves:
                         if move[0] == king_coords[0] and move[1] == king_coords[1]:
@@ -430,10 +440,12 @@ class Board:
         def get_moves(piece, col, row):
             piece_moves = piece.get_moves(self)
             if piece_moves != None:
+                valid_moves = []
                 for move in piece_moves:
-                    if self.in_check_after_move((col, row), move, color):
-                        piece_moves.remove(move)
-                moves[(col, row)] = piece_moves
+                    if not self.in_check_after_move((col, row), move, color):
+                        valid_moves.append(move)
+                if valid_moves is not None and len(valid_moves) > 0:
+                    moves[(col, row)] = valid_moves
 
         for row in range(0, TILES_IN_ROW):
             for col in range(0, TILES_IN_ROW):
@@ -445,4 +457,8 @@ class Board:
 
         if rand_moves:  # Useful for the ai so that it doesn't just make the same moves every single game
             self.randomize_moves(moves)
+
+        if color == "b":
+            pass
+        
         return moves
